@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LET THE JUDGE JUDGE ME TOO</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --primary: #0a0a0a;
+            --accent: #d4af37; 
+            --text: #e0e0e0;
+            --panel: #1a1a1a;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            height: 100%; font-family: 'Times New Roman', serif;
+            background-color: var(--primary); color: var(--text);
+            overflow: hidden;
+        }
+
+        header {
+            height: 22vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border-bottom: 1px solid var(--accent);
+            padding: 20px;
+            background: linear-gradient(to bottom, #000, #1a1a1a);
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            letter-spacing: 6px;
+            margin: 0;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .poetry {
+            font-style: italic;
+            max-width: 900px;
+            margin-top: 15px;
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #aaa;
+        }
+
+        #main-container {
+            display: flex;
+            height: 78vh;
+        }
+
+        #sidebar {
+            width: 350px;
+            background: var(--panel);
+            overflow-y: auto;
+            border-right: 1px solid #333;
+        }
+
+        .search-box {
+            padding: 15px;
+            position: sticky;
+            top: 0;
+            background: var(--panel);
+            z-index: 10;
+            border-bottom: 1px solid #333;
+        }
+
+        #church-list {
+            list-style: none;
+            padding: 0; margin: 0;
+        }
+
+        .church-item {
+            padding: 15px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .church-item:hover {
+            background: #252525;
+            border-left: 4px solid var(--accent);
+        }
+
+        #map { flex-grow: 1; height: 100%; }
+
+        /* Custom Popup Styling */
+        .leaflet-popup-content-wrapper {
+            background: #111;
+            color: #fff;
+            border: 1px solid var(--accent);
+            border-radius: 0;
+        }
+        .leaflet-popup-tip { background: var(--accent); }
+        .popup-header { color: var(--accent); font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>LET THE JUDGE JUDGE ME TOO</h1>
+    <div class="poetry">
+        "In a land and sea beyond life on earth, like a vessel charting the unchosen birth,<br>
+        born in to write or be written on earth; a soul's weight measured in poetic justice.<br>
+        For every spire is a pen, and every congregation a verse in the silent comparison of life."
+    </div>
+</header>
+
+<div id="main-container">
+    <div id="sidebar">
+        <div class="search-box">
+            <input type="text" id="search" placeholder="Filter locations..." 
+                   style="width: 100%; padding: 10px; background: #000; color: var(--accent); border: 1px solid #444;">
+        </div>
+        <ul id="church-list"></ul>
+    </div>
+    <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    const map = L.map('map').setView([49.2062, -122.9150], 14);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; CARTO'
+    }).addTo(map);
+
+    const churches = [
+        // NEW WESTMINSTER FOCUS (7TH ST & SURROUNDINGS)
+        { name: "St. Paul's Reformed Episcopal", lat: 49.20628, lng: -122.91515, address: "626 Royal Ave", type: "Episcopal", time: "Sun 10:30 AM" },
+        { name: "St. Peter's Roman Catholic", lat: 49.20455, lng: -122.90665, address: "330 Royal Ave", type: "Catholic", time: "Sun 9:00 AM" },
+        { name: "Holy Trinity Cathedral", lat: 49.20385, lng: -122.90825, address: "514 Carnarvon St", type: "Anglican", time: "Sun 10:00 AM" },
+        { name: "Knox Presbyterian Church", lat: 49.2095, lng: -122.9182, address: "403 E Columbia St", type: "Presbyterian", time: "Sun 10:00 AM" },
+        { name: "St. Barnabas Anglican", lat: 49.2158, lng: -122.9305, address: "1010 5th Ave", type: "Anglican", time: "Sun 10:30 AM" },
+        { name: "Shiloh United Church", lat: 49.2195, lng: -122.9012, address: "1110 6th Ave", type: "United", time: "Sun 10:00 AM" },
+        { name: "Queens Avenue United", lat: 49.2075, lng: -122.9125, address: "529 Queens Ave", type: "United", time: "Sun 10:30 AM" },
+        { name: "Westminster Seventh-day Adventist", lat: 49.2155, lng: -122.9234, address: "7925 10th Ave", type: "Adventist", time: "Sat 11:00 AM" },
+        { name: "New West Church (Nazarene)", lat: 49.2142, lng: -122.9215, address: "713 11th St", type: "Nazarene", time: "Sun 10:30 AM" },
+        { name: "Immanuel Pentecostal", lat: 49.2068, lng: -122.9195, address: "957 12th St", type: "Pentecostal", time: "Sun 10:00 AM" },
+
+        // VANCOUVER LANDMARKS
+        { name: "Christ Church Cathedral", lat: 49.2847, lng: -123.1200, address: "690 Burrard St", type: "Anglican", time: "Sun 10:30 AM" },
+        { name: "St. James Anglican", lat: 49.2818, lng: -123.0955, address: "303 E Cordova St", type: "Anglican", time: "Sun 11:00 AM" },
+        { name: "Holy Rosary Cathedral", lat: 49.2825, lng: -123.1155, address: "646 Richards St", type: "Catholic", time: "Sun 8:00 AM" },
+        { name: "St. Andrew's-Wesley United", lat: 49.2815, lng: -123.1280, address: "1022 Nelson St", type: "United", time: "Sun 10:30 AM" },
+        { name: "Canadian Memorial United", lat: 49.2585, lng: -123.1415, address: "1825 W 16th Ave", type: "United", time: "Sun 10:30 AM" },
+        { name: "Tenth Church", lat: 49.2625, lng: -123.1015, address: "11 W 10th Ave", type: "Alliance", time: "Sun 9:00 AM" },
+        { name: "First Baptist Church", lat: 49.2810, lng: -123.1255, address: "969 Burrard St", type: "Baptist", time: "Sun 10:30 AM" },
+        { name: "Coastal Church", lat: 49.2865, lng: -123.1235, address: "1160 W Georgia St", type: "Evangelical", time: "Sun 11:00 AM" },
+        { name: "Grandview Baptist", lat: 49.2685, lng: -123.0705, address: "1803 E 1st Ave", type: "Baptist", time: "Sun 11:00 AM" },
+        { name: "St. Mary's Kerrisdale", lat: 49.2335, lng: -123.1555, address: "2490 W 37th Ave", type: "Anglican", time: "Sun 10:00 AM" },
+
+        // BURNABY
+        { name: "All Saints Anglican", lat: 49.2198, lng: -122.9155, address: "7405 Royal Oak Ave", type: "Anglican", time: "Sun 10:00 AM" },
+        { name: "Burnaby North Baptist", lat: 49.2755, lng: -122.9805, address: "3977 Albert St", type: "Baptist", time: "Sun 11:00 AM" },
+        { name: "Willingdon Church", lat: 49.2385, lng: -123.0035, address: "4812 Willingdon Ave", type: "Interdenominational", time: "Sun 9:00 AM" },
+        { name: "St. Nicholas Parish", lat: 49.2705, lng: -122.9405, address: "3883 Triumph St", type: "Catholic", time: "Sun 10:00 AM" },
+        { name: "Southside Community", lat: 49.2185, lng: -122.9605, address: "7135 Walker Ave", type: "Community", time: "Sun 10:30 AM" },
+
+        // SURREY
+        { name: "Relate Church", lat: 49.1915, lng: -122.7405, address: "6788 152 St", type: "Christian", time: "Sun 10:00 AM" },
+        { name: "St. Matthew's Parish", lat: 49.1655, lng: -122.7805, address: "16079 88 Ave", type: "Catholic", time: "Sun 8:30 AM" },
+        { name: "Surrey Pentecostal", lat: 49.1955, lng: -122.8205, address: "16870 80 Ave", type: "Pentecostal", time: "Sun 10:30 AM" },
+        { name: "Village Church", lat: 49.0305, lng: -122.7805, address: "14928 56 Ave", type: "Evangelical", time: "Sun 10:00 AM" },
+        { name: "Gracepoint Community", lat: 49.0405, lng: -122.8205, address: "3487 King George Blvd", type: "Community", time: "Sun 10:00 AM" },
+
+        // RICHMOND & COQUITLAM
+        { name: "Richmond Pentecostal", lat: 49.1555, lng: -123.1205, address: "9300 Westminster Hwy", type: "Pentecostal", time: "Sun 10:30 AM" },
+        { name: "St. Paul's Parish Richmond", lat: 49.1655, lng: -123.1455, address: "8251 St Albans Rd", type: "Catholic", time: "Sun 9:00 AM" },
+        { name: "Coquitlam Alliance", lat: 49.2785, lng: -122.8105, address: "2601 Spuraway Ave", type: "Alliance", time: "Sun 10:00 AM" },
+        { name: "St. Laurence Anglican", lat: 49.2555, lng: -122.8605, address: "825 Laurence St", type: "Anglican", time: "Sun 10:30 AM" },
+        { name: "Northside Community", lat: 49.2655, lng: -122.7705, address: "1460 Lansdowne Dr", type: "Community", time: "Sun 10:30 AM" },
+        
+        // NORTH VAN & WEST VAN
+        { name: "St. Andrew's United North Van", lat: 49.3205, lng: -123.0705, address: "1033 Lloyd Ave", type: "United", time: "Sun 10:00 AM" },
+        { name: "St. Stephen's Anglican", lat: 49.3355, lng: -123.1555, address: "885 22nd St", type: "Anglican", time: "Sun 10:30 AM" },
+        { name: "Holy Trinity Catholic NV", lat: 49.3155, lng: -123.0605, address: "2725 Lonsdale Ave", type: "Catholic", time: "Sun 9:00 AM" },
+        
+        // MORE NEW WEST & DELTA
+        { name: "St. Helen's Anglican", lat: 49.1915, lng: -122.8805, address: "10787 128 St", type: "Anglican", time: "Sun 10:00 AM" },
+        { name: "Cedar Grove Baptist", lat: 49.1955, lng: -122.8505, address: "10330 144 St", type: "Baptist", time: "Sun 10:30 AM" },
+        { name: "New Hope Christian", lat: 49.1355, lng: -122.8905, address: "Delta BC", type: "Christian", time: "Sun 10:30 AM" },
+        { name: "St. George's Anglican", lat: 49.1755, lng: -123.0105, address: "Fort Langley", type: "Anglican", time: "Sun 10:00 AM" },
+        { name: "South Delta Baptist", lat: 49.0355, lng: -123.0805, address: "Tsawwassen", type: "Baptist", time: "Sun 10:00 AM" },
+        { name: "Lighthouse Community", lat: 49.1555, lng: -123.1105, address: "Richmond", type: "Christian", time: "Sun 11:00 AM" },
+        { name: "South Burnaby United", lat: 49.2155, lng: -122.9805, address: "7591 Gray Ave", type: "United", time: "Sun 10:00 AM" },
+        { name: "Westlynn Baptist", lat: 49.3255, lng: -123.0205, address: "North Vancouver", type: "Baptist", time: "Sun 10:30 AM" },
+        { name: "St. Augustine's Parish", lat: 49.2655, lng: -123.1655, address: "Vancouver", type: "Catholic", time: "Sun 9:00 AM" },
+        { name: "Broadway Church", lat: 49.2615, lng: -123.0515, address: "2700 E Broadway", type: "Pentecostal", time: "Sun 10:00 AM" },
+        { name: "Point Grey Community", lat: 49.2635, lng: -123.2055, address: "Vancouver", type: "Community", time: "Sun 10:30 AM" },
+        { name: "Mount Pleasant Baptist", lat: 49.2635, lng: -123.0955, address: "Vancouver", type: "Baptist", time: "Sun 11:00 AM" }
+    ];
+
+    const listContainer = document.getElementById('church-list');
+
+    churches.forEach((church) => {
+        const marker = L.marker([church.lat, church.lng]).addTo(map);
+        
+        const popupContent = `
+            <div class="popup-header">${church.name}</div>
+            <div style="font-size: 0.9rem;">
+                <b>Type:</b> ${church.type}<br>
+                <b>Time:</b> ${church.time}<br>
+                <b>Address:</b> ${church.address}
+            </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+
+        const li = document.createElement('li');
+        li.className = 'church-item';
+        li.innerHTML = `<strong>${church.name}</strong><br><small>${church.address}</small>`;
+        li.onclick = () => {
+            map.setView([church.lat, church.lng], 16);
+            marker.openPopup();
+        };
+        listContainer.appendChild(li);
+    });
+
+    document.getElementById('search').addEventListener('input', function(e) {
+        const val = e.target.value.toLowerCase();
+        document.querySelectorAll('.church-item').forEach(item => {
+            item.style.display = item.innerText.toLowerCase().includes(val) ? 'block' : 'none';
+        });
+    });
+</script>
+</body>
+</html>
